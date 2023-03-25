@@ -149,12 +149,12 @@ SendResult httpData::sendResponse()
         // 加上空行
         sprintf(send_header, "%s\r\n%s", send_header, send_content);
         // 发送头部
-        int sendLen = writen(clientFd, send_header, strlen(send_header));
+        int sendLen = util::writen(clientFd, send_header, strlen(send_header));
         if((size_t)sendLen != strlen(send_header))
             return SendResult::ERROR;
 
         // 发送body
-        sendLen = writen(clientFd, send_content, strlen(send_content));
+        sendLen = util::writen(clientFd, send_content, strlen(send_content));
         if((size_t)sendLen != strlen(send_content))
             return SendResult::ERROR;
         printf("成功接收POST请求! 内容: %s\n", content.data());
@@ -164,9 +164,9 @@ SendResult httpData::sendResponse()
         size_t dot_pos = url.find('.');
         string fileType;
         if(dot_pos == string::npos)
-            fileType = getMimeType("default");// 无后缀, 当作文本文件展示
+            fileType = util::getMimeType("default");// 无后缀, 当作文本文件展示
         else
-            fileType = getMimeType(url.substr(dot_pos));
+            fileType = util::getMimeType(url.substr(dot_pos));
         // 先判断文件是否存在
         if(access(url.data(), F_OK) == -1)
             return SendResult::NOTFOUND;
@@ -179,7 +179,7 @@ SendResult httpData::sendResponse()
         sprintf(send_header, "%s\r\n", send_header);// 空行, 头部结束
 
         // 发送头部
-        size_t send_len = writen(clientFd, send_header, strlen(send_header));
+        size_t send_len = util::writen(clientFd, send_header, strlen(send_header));
         if(send_len != strlen(send_header))
             return SendResult::ERROR;
         // 如果是HEAD请求的话,只要发送头部
@@ -206,7 +206,7 @@ ParseRequest httpData::handleRequest()
     bool isError = false;
     while(parseState != ParseRequest::FINISH){
         // 读数据
-        int readSum = readn(clientFd, buf, 4096);
+        int readSum = util::readn(clientFd, buf, 4096);
         if(readSum < 0)
         {
             isError = true;
@@ -331,8 +331,8 @@ void httpData::handleError(int statusCode, std::string short_msg)
     header += "Content-length: " + to_string(body.size()) + "\r\n";
     header += "\r\n";
 
-    writen(clientFd, header.data(), header.size());// 写入header
-    writen(clientFd, body.data(), body.size());// 写入body
+    util::writen(clientFd, header.data(), header.size());// 写入header
+    util::writen(clientFd, body.data(), body.size());// 写入body
 }
 
 void httpData::reset()

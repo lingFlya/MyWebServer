@@ -1,79 +1,77 @@
 #include "timer.h"
-#include "util/util.h"
 
-Timer::Timer(uint64_t ms)
-    : timeout(ms)
-{
-    timeout += current_time();
-}
+#include <sys/timerfd.h>
+#include <sys/epoll.h>
+#include <cerrno>
+#include <cstring>
 
-Timer::Timer(uint64_t ms, std::function<void()> cb)
-    :timeout(ms), callBack(cb)
-{
-    timeout += current_time();
-}
+#include "log/log.h"
 
-Timer::~Timer()
-{}
+static Logger::ptr g_logger = LOG_NAME("system");
 
-void Timer::cancel()
-{
-    if(callBack)
-        callBack = nullptr;
+bool Timer::Comparator::operator()(const Timer::ptr& lhs
+        ,const Timer::ptr& rhs) const {
+    if(!lhs && !rhs) {
+        return false;
+    }
+    if(!lhs) {
+        return true;
+    }
+    if(!rhs) {
+        return false;
+    }
+    if(lhs->m_timeout < rhs->m_timeout) {
+        return true;
+    }
+    if(rhs->m_timeout < lhs->m_timeout) {
+        return false;
+    }
+    /// 到期时间点相同，比较地址
+    return lhs.get() < rhs.get();
 }
 
 TimerManager::TimerManager()
-{}
+{
+    m_tfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+    if(m_tfd == -1){
+        LOG_FATAL(g_logger) << "timerfd_create() error: " << strerror(errno);
+        exit(EXIT_FAILURE);
+    }
+}
 
 TimerManager::~TimerManager()
 {
-    WriteScopedLock writeLock(lock);
-    while(!Sequence.empty())
+    close(m_tfd);
+}
+
+Timer::ptr TimerManager::AddTimer(uint64_t interval, std::function<void()>&& cb, bool recurring)
+{
+    Timer::ptr newTimer = std::make_shared<Timer>(Timer(interval, cb, recurring));
+    AddTimer(newTimer);
+    return newTimer;
+}
+
+void TimerManager::AddTimer(Timer::ptr timer)
+{
+    WebServer::ScopedLock<WebServer::Mutex> lk(m_mtx);
+    if(timer->GetTimeOut() < m_container.top()->GetTimeOut())
     {
-        Timer* p = Sequence.top();
-        delete p;
-        Sequence.pop();
+        /// 新的最近要执行的任务，需要打断当前计时的sleep，设置新的计时时间
+
+        /// 还是不用epoll了，这里就是只有一个timerfd需要监听，根本没必要使用io多路复用。自己控制就行了。
+        /// 单独开一个线程，read timerfd， 如果时间没到，就会阻塞。如果时间到了，就返回。
+        /// 析构时，settime重置为当前时间，马上唤醒，然后线程推出，join thread对象。
     }
+    m_container.push(timer);
 }
 
-// 复杂度O(lgN)
-Timer* TimerManager::addTimer(uint64_t ms, std::function<void()>&& cb)
+void TimerManager::DelTimer(Timer::ptr timer)
 {
-    Timer* p = new Timer(ms, cb);
-    WriteScopedLock wirteLock(lock);
-    Sequence.push(p);
-    return p;
-}
-
-// 由于堆只能删除栈顶元素, 所以这里使用延迟删除, 就是只有前面的
-// 可以删除, 才会真正删除, 否则先取消计时器, 等待删除
-void TimerManager::delTimer(Timer* p)
-{
-    WriteScopedLock writeLock(lock);
-    p->cancel();
-}
-
-// 执行所有超时事件
-void TimerManager::takeAllTimeout()
-{
-    WriteScopedLock writeLock(lock);
-    uint64_t now = current_time();
-    printf("执行清理, 还剩%lu个元素\n", Sequence.size());
-    while(!Sequence.empty() && Sequence.top()->getTimeOut() < now)
-    {
-        Timer* p = Sequence.top();
-        // 因为有些定时器是延迟删除, 所以会出现callback是null的定时器
-        if(p->callBack != nullptr)
-            p->callBack();// 执行定时任务
-        Sequence.pop();
-    }
-}
-
-// 最小到期时间还剩多久
-int64_t TimerManager::getMinTO()
-{
-    ReadScopedLock readLock(lock);
-    if(Sequence.empty())
-        return -1;
-    return Sequence.top()->getTimeOut() - current_time();
+    WebServer::ScopedLock<WebServer::Mutex> lk(m_mtx);
+    /// 由于堆只能删除栈顶元素, 所以这里使用延迟删除, 只有该节点到达堆顶才会被删除。
+    timer->Cancel();
+    /**
+     *    需要检测是否是顶部元素取消？以此打断计时，重新设置计时？
+     *    完全没必要，计时到期被唤醒时判断一下timer是否被取消了就行了。从效率上看，都是唤醒，再睡眠
+     */
 }
