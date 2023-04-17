@@ -1,5 +1,5 @@
 # cmake最低版本号要求
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 
 # 项目名
 project(WebServer)
@@ -11,14 +11,13 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 link_directories(${PROJECT_SOURCE_DIR}/lib)
 
-# 检测yaml-cpp静态库/动态库是否存在。
-# 如果存在，yamlcpp_lib变量记录的就是libyaml-cpp.a的路径。如果不存在，yamlcpp_lib变量就是"yamlcpp_lib-NOTFOUND"
-# 注意这个yamlcpp_lib变量会缓存下来，所以每次cmake之前，如果没有清除缓存文件，yamlcpp_lib就是上一次的值
-# NO_CACHE指定yamlcpp_lib不作为缓存变量，作为普通变量
-find_library(yamlcpp_lib yaml-cpp ${PROJECT_SOURCE_DIR}/lib NO_CACHE REQUIRED)
-# exists后面是一个文件或者目录路径，只有合法存在，就返回ture
-IF(EXISTS ${yamlcpp_lib})
-    message(STATUS "libyaml-cpp.a located in ${yamlcpp_lib}")
+# find_library执行完毕后, 会将结果缓存到CMakeCache.txt中, 这里取消yaml-cpp缓存结果
+unset(yaml-cpp CACHE)
+# 第一个yaml-cpp是结果, 第二个是库名, HINTS用来指定额外查找路径, REQUIRED表示执行没找到就停止运行
+find_library(yaml-cpp yaml-cpp HINTS ${PROJECT_SOURCE_DIR}/lib REQUIRED)
+# EXISTS后面是一个文件或者目录路径，只有合法存在，就返回ture
+IF(EXISTS ${yaml-cpp})
+    message(STATUS "libyaml-cpp.a located in ${yaml-cpp}")
 ELSE()
     message(FATAL_ERROR "libyaml-cpp.a not found!")
 ENDIF()
@@ -30,6 +29,9 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src/conf SRC_FILE)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/thread SRC_FILE)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build)
+
 
 add_executable(WebServer main.cpp ${SRC_FILE})
 set_target_properties(WebServer PROPERTIES COMPILE_FLAGS "-pthread" LINK_FLAGS "-pthread")
