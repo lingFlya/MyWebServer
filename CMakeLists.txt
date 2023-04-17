@@ -2,9 +2,16 @@
 cmake_minimum_required(VERSION 3.18)
 
 # 项目名
-project(WebServer)
+project(WebServer
+        VERSION 0.1
+        LANGUAGES C CXX
+)
 
-add_compile_options(-std=c++11 -g -ggdb -Wall -Wextra)
+# add_compile_options(-std=c++11 -g -ggdb -Wall -Wextra) # 该指令同时设置C和C++编译选项，现在需要分开设置
+
+# 需要设置C版本，是c和c++的混编
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -ggdb -std=gnu99")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -ggdb -std=c++11")
 
 include_directories(${PROJECT_SOURCE_DIR}/include/third_lib)
 include_directories(${PROJECT_SOURCE_DIR}/include)
@@ -23,10 +30,11 @@ ELSE()
 ENDIF()
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/src SRC_FILE)
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/log SRC_FILE)
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/util SRC_FILE)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/conf SRC_FILE)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/log SRC_FILE)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/poller SRC_FILE)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/thread SRC_FILE)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/util SRC_FILE)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -52,3 +60,7 @@ target_link_libraries(log_test yaml-cpp)
 add_executable(thread_test tests/test_thread.cpp ${SRC_FILE})
 set_target_properties(thread_test PROPERTIES COMPILE_FLAGS "-pthread" LINK_FLAGS "-pthread")
 target_link_libraries(thread_test yaml-cpp)
+
+# 测试定时器模块
+add_executable(timer_test tests/timer_test.cpp ${SRC_FILE})
+set_target_properties(timer_test PROPERTIES COMPILE_FLAGS "-pthread" LINK_FLAGS "-pthread")

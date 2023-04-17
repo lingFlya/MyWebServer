@@ -7,7 +7,6 @@
  **/
 #ifndef WEBSERVER_HTTPDATA_H
 #define WEBSERVER_HTTPDATA_H
-#include "useEpoll.h"
 #include <string>
 #include <unordered_map>
 using std::string;

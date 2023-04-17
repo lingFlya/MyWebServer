@@ -1,73 +1,99 @@
-/*
- * @author RedDragon
- * @date 2021/2/28
+/**
+ * @author 2mu
+ * @date 2022/7/31
  * @brief 定时器
- **/
+ */
 
 #ifndef WEBSERVER_TIMER_H
 #define WEBSERVER_TIMER_H
 
-#include <cstdint>
-#include <functional>
 #include <queue>
-#include <vector>
-#include "lock.h"
+#include <functional>
+#include <memory>
 
-using std::priority_queue;
+#include "thread/mutex.h"
+#include "util/util.h"
 
-class TimerManager;
-// 计时器
-class Timer
+class Timer : public std::enable_shared_from_this<Timer>
 {
     friend class TimerManager;
-private:
-    uint64_t timeout;                   // 超时时间
-    std::function<void()> callBack;     // 回调函数
-
-    // ms 秒后到期
-    explicit Timer(uint64_t ms);
-    Timer(uint64_t ms, std::function<void()> cb);
-    ~Timer();
 
 public:
-    void cancel();      // 取消定时器
-    // 还剩多久到期
-    uint64_t getTimeOut()const
+    typedef std::shared_ptr<Timer> ptr;
+
+    Timer(uint64_t interval, std::function<void()> cb, bool recurring)
+            :m_recurring(recurring) ,m_interval(interval) ,m_cb(cb)
     {
-        return timeout;
+        m_timeout = util::current_time() + m_interval;
     }
+
+    /**
+     * @brief 定时器比较器
+     */
+    struct Comparator{
+        bool operator()(const Timer::ptr& lhs, const Timer::ptr& rhs)const;
+    };
+
+    /**
+     * @brief 取消定时器回调函数
+     */
+    void Cancel()
+    {
+        if(m_cb)
+        {
+            m_cb = nullptr;
+        }
+    }
+
+    /**
+     * @brief 返回到期时间点
+     */
+    uint64_t GetTimeOut()const
+    {
+        return m_timeout;
+    }
+
+private:
+    bool                    m_recurring;/// 是否循环定时器
+    uint64_t                m_interval;/// 时间间隔
+    uint64_t                m_timeout;/// 精确的执行时间点
+    std::function<void()>   m_cb;/// 回调函数, 若为nullptr，则该定时器已被标记待删除。
 };
 
-struct Comparator{
-    bool operator()(const Timer* t1, const Timer* t2)const
-    {
-        return t1->getTimeOut() > t2->getTimeOut();
-    }
-};
-
+/**
+ * @brief 底层容器是堆，删除顺序一定是有序的。
+ */
 class TimerManager
 {
-private:
-    RWMutex lock;
-    priority_queue<Timer*, std::vector<Timer*>, Comparator> Sequence;// 底层容器
-    /* 底层容器保证按照超时时间升序排列
-     * 选用堆 而不是 list的原因:
-     * 首先时间复杂度: 堆               链表
-     *  插入        O(logN)           O(N)
-     *  删除   受限制(延迟删除O(n))     O(N)
-     * 可以看出,大部分操作时间复杂度基本一致, 但是堆的插入是有优势
-     */
 public:
+    typedef std::shared_ptr<TimerManager> ptr;
+    using Container = std::priority_queue<Timer::ptr, std::vector<Timer::ptr>, Timer::Comparator>;
+
     TimerManager();
     ~TimerManager();
-    // 添加定时器
-    Timer* addTimer(uint64_t timeout, std::function<void()>&& cb);
+
+    /**
+     * @brief 添加定时器
+     * @param interval 多久之后触发，单位：毫秒
+     * @param cb       到期时候的回调函数
+     * @param recurring 是否周期性触发
+     * @return Timer::ptr 创建的定时器
+     */
+    Timer::ptr AddTimer(uint64_t interval, std::function<void()>&& cb, bool recurring);
+    void AddTimer(Timer::ptr timer);
+
     // 删除定时器(实际上没有删除,只是将cb置为null)
-    void delTimer(Timer* ptr);
-    // 执行所有到期事件
-    void takeAllTimeout();
-    // 得到最小的超时时间
-    int64_t getMinTO();
+    void DelTimer(Timer::ptr timer);
+
+    int GetTimerfd()const
+    {
+        return m_tfd;
+    }
+
+private:
+    int                     m_tfd;      /// 对应的timerfd
+    WebServer::Mutex        m_mtx;
+    Container               m_container;/// 存储定时器的底层容器
 };
 
 #endif //WEBSERVER_TIMER_H
