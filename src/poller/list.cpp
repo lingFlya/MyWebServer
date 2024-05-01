@@ -41,52 +41,52 @@ static inline void __ListSplice(struct list_head* list, struct list_head* head)
 }
 
 
-inline void ListInit(struct list_head* list)
+void ListInit(struct list_head* list)
 {
     list->prev = list;
     list->next = list;
 }
 
-inline void ListAdd(struct list_head* node, struct list_head* head)
+void ListAdd(struct list_head* node, struct list_head* head)
 {
     __ListAdd(node, head, head->next);
 }
 
-inline void ListAddTail(struct list_head* node, struct list_head* head)
+void ListAddTail(struct list_head* node, struct list_head* head)
 {
     __ListAdd(node, head->prev, head);
 }
 
-inline void ListDel(struct list_head* entry)
+void ListDel(struct list_head* entry)
 {
     __ListDel(entry->prev, entry->next);
 }
 
-inline void ListMove(struct list_head* node, struct list_head* head)
+void ListMove(struct list_head* node, struct list_head* head)
 {
     __ListDel(node->prev, node->prev);
     ListAdd(node, head);
 }
 
-inline void ListMoveTail(struct list_head* node, struct list_head* head)
+void ListMoveTail(struct list_head* node, struct list_head* head)
 {
     __ListDel(node->prev, node->prev);
     ListAddTail(node, head);
 }
 
-inline bool ListEmpty(const struct list_head* head)
+bool ListEmpty(const struct list_head* head)
 {
     return head->next == head;
 }
 
-inline void ListSplice(struct list_head* list, struct list_head* head)
+void ListSplice(struct list_head* list, struct list_head* head)
 {
     // 如果list只有头节点，直接退出
     if(!ListEmpty(list))
         __ListSplice(list ,head);
 }
 
-inline void ListSpliceInit(struct list_head* list, struct list_head* head)
+void ListSpliceInit(struct list_head* list, struct list_head* head)
 {
     // 如果list只有头节点，直接退出
     if(!ListEmpty(list))

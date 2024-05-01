@@ -184,8 +184,8 @@ static int __poller_set_timer(poller_t* poller)
 
     // 由于__poller_node结构体中有union,所以无法确定__poller_node对象是使用的list还是rbtree, 所以两种都支持
 
-    // 通过timeo_list.next拿到其绑定的的__poller_node
-    if (!ListEmpty(poller->timeo_list))
+    // 通过timeo_list.next拿到其绑定的的__poller_node(链表首元素)
+    if (!ListEmpty(&poller->timeo_list))
         node = list_entry(poller->timeo_list.next, struct __poller_node, list);
 
     /// 通过timeo_tree.first拿到其绑定的__poller_node, 选出其中最快要超时的一个node
