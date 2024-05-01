@@ -1,6 +1,5 @@
 #include "util/util.h"
 
-#include <cstdio>
 #include <cstring>
 #include <unordered_map>
 
@@ -13,34 +12,36 @@
 #include <unistd.h>
 #include <csignal>
 
+
 namespace util
 {
-    void setSigIgn(int sig)
+    int set_signal_ignore(int sig)
     {
         struct sigaction act;
         act.sa_flags = 0;
         act.sa_handler = SIG_IGN;
-        /// 信号处理函数执行时, 阻塞所有信号
+        // 信号处理函数在执行过程中, 阻塞所有其它信号; 避免信号处理函数执行过程中接受到新的信号
         sigfillset(&act.sa_mask);
-        if (-1 == sigaction(sig, &act, nullptr))
-            perror("sigaction");
+        if (-1 == sigaction(sig, &act, NULL))
+            return -1;
+        return 0;
     }
 
-    int socket_bind_listen(int port)
+
+    int socket_bind_listen(unsigned short port)
     {
-        /// 检查port值，取正确区间范围
-        if (port < 1024 || port > 65535)
+        // 检查端口号是否合法
+        if (port <= 1024 || port > 65535)
             return -1;
 
         int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
         if (listen_fd == -1)
             return -1;
-        /// 消除bind时"Adress a'lready is used"的错误，
+        // 开启端口复用选项
         int optval = 1;
         if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
             return -1;
 
-        /// 设置服务器的IP和port，并且绑定到监听的socket描述符上。
         struct sockaddr_in server_addr;
         bzero(&server_addr, sizeof(server_addr));
         server_addr.sin_family = AF_INET;
@@ -49,25 +50,22 @@ namespace util
         if (bind(listen_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) == -1)
             return -1;
 
-        /// 开始监听
-        if (listen(listen_fd, 8) == -1)
+        /// 开始监听, nginx设置的backlog也是511
+        if (listen(listen_fd, 511) == -1)
             return -1;
-        else
-            printf("服务器启动成功! 监听端口: %d\n", port);
         return listen_fd;
     }
 
-    int setNonBlock(int fd)
+
+    int set_nonblock(int fd)
     {
         int flag = 0;
-        int ret = fcntl(fd, F_GETFL, flag);
-        if (-1 == ret)
+        int rc = fcntl(fd, F_GETFL, flag);
+        if (rc == -1)
             return -1;
         flag |= O_NONBLOCK;
-        ret = fcntl(fd, F_SETFL, flag);
-        if (-1 == ret)
-            return -1;
-        return 0;
+        rc = fcntl(fd, F_SETFL, flag);
+        return rc;
     }
 
     std::string getMimeType(const std::string &suffix)
@@ -152,7 +150,7 @@ namespace util
         return total;
     }
 
-    std::uint64_t current_time()
+    std::uint64_t get_real_time()
     {
         std::uint64_t ret = -1;
         struct timeval tv;
@@ -161,6 +159,13 @@ namespace util
         else
             ret = tv.tv_sec * (std::uint64_t) 1000 + tv.tv_usec / (std::uint64_t) 1000;
         return ret;
+    }
+
+    std::uint64_t get_real_time_nsec()
+    {
+        struct timespec tp;
+        clock_gettime(CLOCK_REALTIME, &tp);
+        return tp.tv_sec*1000000000ULL + (unsigned long long)tp.tv_nsec;
     }
 
     pid_t getThreadID()

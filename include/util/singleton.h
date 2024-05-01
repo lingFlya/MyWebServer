@@ -1,15 +1,26 @@
-#ifndef WEBSERVER_SINGLETON_H
-#define WEBSERVER_SINGLETON_H
+/**
+ * @author  2mu
+ * @date    2022/5/22
+ * @brief   实现的单例模板类, 需要实现单例的class直接传参实例化该模板即可
+*/
+
+#ifndef WEB_SERVER_SINGLETON_H
+#define WEB_SERVER_SINGLETON_H
 
 #include <boost/noncopyable.hpp>
 #include <pthread.h>
 
+
+/**
+ * @brief 直接返回指定class的单例, 缺点是该class必须支持默认构造函数;
+ * @tparam T 要使用单例模式的class
+ */
 template<class T>
 class Singleton : boost::noncopyable
 {
 public:
     /**
-     * @brief 返回唯一单例的引用，为什么不是指针？防止憨憨用户对实例指针delete。
+     * @brief 返回唯一单例的引用，为什么不是指针？防止误操作对指针delete。
      */
     static T& getInstance()
     {
@@ -40,4 +51,4 @@ T* Singleton<T>::m_instance = nullptr;
 template<typename T>
 pthread_once_t Singleton<T>::m_once = PTHREAD_ONCE_INIT;
 
-#endif //WEBSERVER_SINGLETON_H
+#endif // WEB_SERVER_SINGLETON_H
