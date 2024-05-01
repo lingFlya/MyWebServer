@@ -1,8 +1,8 @@
 .vscode
 
-build/*
+build/
 
-bin/*
+bin/
 
 log/*
 

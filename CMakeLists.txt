@@ -29,38 +29,23 @@ ELSE()
     message(FATAL_ERROR "libyaml-cpp.a not found!")
 ENDIF()
 
-aux_source_directory(${PROJECT_SOURCE_DIR}/src SRC_FILE)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src SRC_FILE)    # 迟早删除
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/conf SRC_FILE)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/log SRC_FILE)
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/poller SRC_FILE)
+#aux_source_directory(${PROJECT_SOURCE_DIR}/src/poller SRC_FILE)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/thread SRC_FILE)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/util SRC_FILE)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/timer SRC_FILE)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/errmsg SRC_FILE)
 
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+# set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin) (旧)设置可执行文件目录, 若有设置RUNTIME_OUTPUT_DIRECTORY, 会被顶替
+# (新)设置可执行文件目录
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build)
 
+# 编译测试用例(后期可以加个选项决定是否编译 测试用例)
+add_subdirectory(tests)
 
 add_executable(WebServer main.cpp ${SRC_FILE})
 set_target_properties(WebServer PROPERTIES COMPILE_FLAGS "-pthread" LINK_FLAGS "-pthread")
 target_link_libraries(WebServer yaml-cpp)
-
-# 测试用例:
-# 测试配置模块
-add_executable(conf_test tests/test_conf.cpp ${SRC_FILE})
-set_target_properties(conf_test PROPERTIES COMPILE_FLAGS "-pthread" LINK_FLAGS "-pthread")
-target_link_libraries(conf_test yaml-cpp)
-
-# 测试日志模块
-add_executable(log_test tests/test_log.cpp ${SRC_FILE})
-set_target_properties(log_test PROPERTIES COMPILE_FLAGS "-pthread" LINK_FLAGS "-pthread")
-target_link_libraries(log_test yaml-cpp)
-
-# 测试线程模块
-add_executable(thread_test tests/test_thread.cpp ${SRC_FILE})
-set_target_properties(thread_test PROPERTIES COMPILE_FLAGS "-pthread" LINK_FLAGS "-pthread")
-target_link_libraries(thread_test yaml-cpp)
-
-# 测试定时器模块
-add_executable(timer_test tests/timer_test.cpp ${SRC_FILE})
-set_target_properties(timer_test PROPERTIES COMPILE_FLAGS "-pthread" LINK_FLAGS "-pthread")
