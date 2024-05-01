@@ -45,7 +45,7 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream &os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override
+    void format(std::ostream &os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override
     {
         os << event->getContent();
     }
@@ -61,7 +61,7 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override 
+    void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level, LogEvent::ptr event __attribute__((unused))) override 
     {
         os << LogLevel::ToString(level);
     }
@@ -77,7 +77,7 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override 
+    void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override 
     {
         os << event->getThreadID();
     }
@@ -93,7 +93,7 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override 
+    void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override 
     {
         os << event->getThreadName();
     }
@@ -109,7 +109,7 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override 
+    void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event __attribute__((unused))) override 
     {
         os << std::endl;
     }
@@ -125,7 +125,7 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override 
+    void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override 
     {
         os << event->getLine();
     }
@@ -141,7 +141,7 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override 
+    void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override 
     {
         os << event->getFile();
     }
@@ -157,7 +157,7 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override 
+    void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event __attribute__((unused))) override 
     {
         os << '\t';
     }
@@ -190,7 +190,7 @@ public:
         :m_string(str)
     {}
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override 
+    void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event __attribute__((unused))) override 
     {
         os << m_string;
     }

@@ -56,9 +56,10 @@ public:
     void setFormatter(LogFormatter::ptr newFormatter);
 
 protected:
-    LogLevel::Level         m_level;          /// 默认日志级别，小于该级别，该appender不记录。
-    LogFormatter::ptr       m_formatter;      /// 日志格式器（构造函数没有构造，默认为空）
-    WebServer::Mutex        m_mtx;            /// 互斥锁
+    LogLevel::Level         m_level;          // 默认日志级别，小于该级别，该appender不记录。
+    LogFormatter::ptr       m_formatter;      // 日志格式器, 默认为NULL
+    // std::shared_ptr的不同副本在不同线程操作是安全的, 在多个线程操作同一std::shared_ptr实例, 且有一个线程是执行std::shared_ptr的非const成员函数, 则不安全;
+    WebServer::Mutex        m_formatterMtx;   // 互斥锁, 防止多个线程操作this->m_formatter
 };
 
 /**
@@ -101,9 +102,12 @@ public:
 
     void log(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override;
 private:
-    std::string     m_fileName;        /// 文件路径
-    std::ofstream   m_fileStream;      /// 文件流
-    uint64_t        m_lastTime = 0;    /// 上次打开时间
+    std::string     m_fileName;        // 文件路径
+    /**
+     * @todo 多线程操作 m_fileStream 也是线程不安全的, 需要加锁; sylar加了, 但是和m_formatter共用一把锁; 我单独给它加把锁吧
+     */
+    std::ofstream   m_fileStream;      // 文件流
+    uint64_t        m_lastTime = 0;    // 上次打开时间
 };
 
 #endif // LOG_APPENDER_H

@@ -5,7 +5,7 @@ using WebServer::ScopedLock;
 void Logger::addAppender(LogAppender::ptr appender)
 {
     ScopedLock<WebServer::Mutex> lk(m_mtx);
-    // 如果该appender的formatter为空，那就指定一个。
+    // 如果该appender的formatter为空(Appender没有指定自己的格式), 那就使用logger的formatter
     if(!appender->getFormatter())
         appender->setFormatter(m_formatter);
     m_listAppender.push_back(appender);
@@ -73,7 +73,8 @@ void Logger::fatal(LogEvent::ptr event)
 LoggerManager::LoggerManager()
     :m_root(nullptr)
 {
-    m_root = std::make_shared<Logger>();
+    // 默认先创建一个root日志器, 将日志输出到stdout
+    m_root = std::make_shared<Logger>("root");
     LogAppender::ptr appender = std::make_shared<StdOutLogAppender>();
     m_root->addAppender(appender);
 
@@ -93,4 +94,12 @@ Logger::ptr LoggerManager::getLogger(const std::string& name)
     logger->m_root = m_root;
     m_loggers[name] = logger;
     return logger;
+}
+
+
+void log_init()
+{
+    Logger::ptr logger = LOG_ROOT();
+    LogAppender::ptr appender = std::make_shared<FileLogAppender>("../log/server.log");
+    logger->addAppender(appender);
 }

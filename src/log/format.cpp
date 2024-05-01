@@ -7,7 +7,7 @@
 #include <cctype>
 #include <time.h>
 
-void DateTimeFormatItem::format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event)
+void DateTimeFormatItem::format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), LogLevel::Level level __attribute__((unused)), LogEvent::ptr event)
 {
     time_t time = event->getTime();
     struct tm t;

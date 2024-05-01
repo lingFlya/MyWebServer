@@ -1,5 +1,5 @@
-#ifndef WEBSERVER_LOG_H
-#define WEBSERVER_LOG_H
+#ifndef WEB_SERVER_LOG_H
+#define WEB_SERVER_LOG_H
 
 #include <string>
 #include <cstdint>
@@ -29,7 +29,7 @@ friend class LoggerManager;
 public:
     typedef std::shared_ptr<Logger> ptr;
 
-    Logger(const std::string& name="root")
+    Logger(const std::string& name)
         :m_level(LogLevel::DEBUG),
          m_formatter(std::make_shared<LogFormatter>("%d{%Y-%m-%d %H:%M:%S}%T%t%T%N%T[%p]%T%f:%l%T%m%n")),
          m_name(name)
@@ -248,6 +248,10 @@ private:
  */
 #define LOG_FMT_FATAL(logger, fmt, ...) LOG_FMT_LEVEL(logger, LogLevel::FATAL, fmt, __VA_ARGS__)
 
-#define LOG_ROOT() LoggerMgr::getInstance().getRoot()
 
-#endif //WEBSERVER_LOG_H
+/**
+ * @brief 初始化log模块
+ */
+void log_init();
+
+#endif //WEB_SERVER_LOG_H

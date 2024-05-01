@@ -8,13 +8,13 @@ using WebServer::ScopedLock;
 
 LogFormatter::ptr LogAppender::getFormatter()
 {
-    ScopedLock<WebServer::Mutex> lock(m_mtx);
+    ScopedLock<WebServer::Mutex> lock(m_formatterMtx);
     return m_formatter;
 }
 
 void LogAppender::setFormatter(LogFormatter::ptr newFormatter)
 {
-    ScopedLock<WebServer::Mutex> lock(m_mtx);
+    ScopedLock<WebServer::Mutex> lock(m_formatterMtx);
     m_formatter = newFormatter;
 }
 
@@ -22,7 +22,7 @@ void StdOutLogAppender::log(std::shared_ptr<Logger> logger, LogLevel::Level leve
 {
     if(level >= m_level)
     {
-        ScopedLock<WebServer::Mutex> lock(m_mtx);
+        ScopedLock<WebServer::Mutex> lock(m_formatterMtx);
         m_formatter->format(std::cout, logger, level, event);
     }
 }
@@ -30,7 +30,6 @@ void StdOutLogAppender::log(std::shared_ptr<Logger> logger, LogLevel::Level leve
 FileLogAppender::FileLogAppender(const std::string &fileName)
     :m_fileName(fileName)
 {
-    m_fileStream.open(m_fileName, std::ios::app);
     reopen();
 }
 
@@ -54,7 +53,7 @@ bool FileLogAppender::reopen()
         else
             std::cout << "create dir success! dirname: " << dir << std::endl;
         // 再试一次
-        m_fileStream.open("./log.txt");
+        m_fileStream.open(m_fileName, std::ios::app);
     }
     return m_fileStream.is_open();
 }
@@ -68,7 +67,7 @@ void FileLogAppender::log(std::shared_ptr<Logger> logger, LogLevel::Level level,
             reopen();
             m_lastTime = now;
         }
-        ScopedLock<WebServer::Mutex> lock(m_mtx);
+        ScopedLock<WebServer::Mutex> lock(m_formatterMtx);
         if(!m_formatter->format(m_fileStream, logger, level, event)) {
             std::cout << "FileLogAppender::log error!" << std::endl;
         }
