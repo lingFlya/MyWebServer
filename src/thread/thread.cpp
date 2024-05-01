@@ -2,13 +2,14 @@
 
 #include <cstring>
 
+#include "errmsg/my_errno.h"
 #include "log/log.h"
 #include "util/util.h"
 
 namespace WebServer
 {
     static Logger::ptr g_logger = LOG_NAME("system");
-
+    // 这里使用C++标准库提供的thread_local，没有使用POSIX的接口，还是有点奇怪.... 以后再改吧
     thread_local Thread* Thread::this_thread = nullptr;
 
     Thread::Thread(std::function<void()> thread_func, std::string thread_name)
@@ -18,7 +19,7 @@ namespace WebServer
         if(ret != 0)
         {
             LOG_ERROR(g_logger) << "pthread_create execute failed! , return " << ret << ", thread name: " << thread_name
-                << ". possible reason: " << strerror(ret);
+                << ". possible reason: " << my_strerror(ret);
             throw std::logic_error("pthread_create execute failed!");
         }
 
@@ -59,7 +60,7 @@ namespace WebServer
             if(ret)
             {
                 LOG_ERROR(g_logger) << "pthread_join failed! return " << ret << ", thread name: " << m_name
-                    << ". Possible reason: " << strerror(ret);
+                    << ". Possible reason: " << my_strerror(ret);
                 throw std::logic_error("pthread_join error!");
             }
             m_thread = 0;
