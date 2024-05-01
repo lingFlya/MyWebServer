@@ -1,7 +1,11 @@
 #include "conf/conf.h"
 
-#include <unistd.h>
-#include <getopt.h>
+#include "log/log.h"
+
+
+int show_version;
+int show_help;
+
 
 static void listAllMember(const std::string& prefix, const YAML::Node& node,
                           std::list<std::pair<std::string, const YAML::Node> >& output)
@@ -71,39 +75,34 @@ void ConfigManager::loadFromYaml(const YAML::Node& root)
 
 bool ConfigManager::loadFromCmd(int argc, char **argv)
 {
-    static struct option long_options[] = {
-        {"port", required_argument, NULL, 1},
-        {"threadcount", required_argument, NULL, 2}
-    };
-    int opt = -1;
-    int option_index = 0;
-    while((opt = getopt_long(argc, argv, "p:t:", long_options, &option_index)) != -1)
+    // Linux提供的getopt或者getopt_long接口用起来太复杂, 且出错会去控制台输出, 代码可读性也不好, 需要反复去看文档;
+    // 自己实现个简单版本的, 能用就行, 暂时只支持 -h, -v, -? 选项
+    for(int i = 1; i < argc; ++i)
     {
-        if(opt == 'p' || opt == 1)
+        char* p = argv[i];
+
+        if(*p++ != '-')
         {
-            ConfigItem<uint16_t>::ptr item = lookup<uint16_t>("port", 7089);
-            item->fromString(std::string(optarg));
-        }
-        else if(opt == 't' || opt == 2)
-        {
-            ConfigItem<uint32_t>::ptr item = lookup<uint32_t>("threadcount", 4);
-            item->fromString(std::string(optarg));
-        }
-        else
-        {// 处理不是option的多余输入
-            LOG_ERROR(LOG_ROOT()) << "usage: ./app [-p, --port] num [-t, --threadcount] num";
+            LOG_ERROR(LOG_ROOT()) << "invalid option: " << argv[i];
             return false;
         }
+        while(*p)
+        {
+            switch (*p++)
+            {
+            case '?':
+            case 'h':
+                m_show_help = 1;
+                break;
+            case 'v':
+                m_show_version = 1;
+                break;
+            default:
+                LOG_FMT_ERROR(LOG_ROOT(), "invalid option: \"%c\"", *(p - 1));
+                return false;
+            }
+        }
     }
-
-    // argv中，不应该存在的参数
-    std::string info;
-    while(optind < argc)
-    {
-        info += std::string(argv[optind++]);
-    }
-    LOG_WARN(LOG_ROOT()) << info;
-
     return true;
 }
 

@@ -1,4 +1,4 @@
-webserver:
+server:
     port: 23456
-    thread_count: 1024
+    thread_count: 128
     htdocs: /home/MyWebServer/htdocs

@@ -1,5 +1,5 @@
-#ifndef WEBSERVER_CONF_H
-#define WEBSERVER_CONF_H
+#ifndef WEB_SERVER_CONF_H
+#define WEB_SERVER_CONF_H
 
 #include <memory>
 #include <algorithm>
@@ -14,6 +14,7 @@
 #include "log/log.h"
 #include "util/util.h"
 #include "thread/mutex.h"
+
 
 /**
  * @brief 配置项的基类
@@ -66,6 +67,7 @@ protected:
     std::string m_name;        // 配置项名称
     std::string m_description; // 配置项描述
 };
+
 
 template<class T, class FromStr = LexicalCast<std::string, T>
         ,class ToStr =  LexicalCast<T, std::string> >
@@ -167,7 +169,11 @@ public:
      */
     uint64_t addCallBack(value_change_cb cb)
     {
-        static uint64_t funcID = 0;// C++11以上能够保证static局部变量只初始化一次
+        /**
+         * @brief C++11及以上, 能够保证多线程调用情况下, static局部变量只初始化一次
+         * 官方文档链接: <https://zh.cppreference.com/w/cpp/language/storage_duration#.E9.9D.99.E6.80.81.E5.B1.80.E9.83.A8.E5.8F.98.E9.87.8F>
+         */
+        static uint64_t funcID = 0;
         WebServer::ScopedLock<WebServer::Mutex> lk(m_mtx);
         funcID++;
         m_cbs.insert(std::pair<uint64_t, value_change_cb>(funcID, cb));
@@ -212,10 +218,16 @@ private:
     std::map<uint64_t, value_change_cb> m_cbs;
 };
 
+
 class ConfigManager
 {
 public:
     typedef std::unordered_map<std::string, ConfigItemBase::ptr> ConfigItemMap;
+
+    ConfigManager()
+        : m_show_version(0),
+        m_show_help(0)
+    {}
 
     /**
      * @brief 获取参数名为name的配置项名,如果存在直接返回,如果不存在,创建参数配置并用default_value赋值
@@ -285,7 +297,7 @@ public:
     void loadFromYaml(const YAML::Node& root);
 
     /**
-     * @brief 读取cmd传进来的配置(argv)
+     * @brief 读取控制台传入的选项
      */
     bool loadFromCmd(int argc, char* argv[]);
 
@@ -301,9 +313,22 @@ public:
      */
     void visit(std::function<void(ConfigItemBase::ptr)> cb);
 
+    int show_version() const
+    {
+        return m_show_version;
+    }
+
+    int show_help() const
+    {
+        return m_show_help;
+    }
+
 private:
+    int                 m_show_version; // 展示程序版本号后, 直接退出;
+    int                 m_show_help;    // 展示程序帮助文档后, 直接退出;
+
     WebServer::Mutex    m_mtx;
-    ConfigItemMap       m_mapConfigs;// 配置项映射
+    ConfigItemMap       m_mapConfigs;   // 配置项映射
 };
 
-#endif // WEBSERVER_CONF_H
+#endif // WEB_SERVER_CONF_H
