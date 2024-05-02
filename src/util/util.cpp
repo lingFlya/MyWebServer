@@ -31,7 +31,7 @@ namespace util
     int socket_bind_listen(unsigned short port)
     {
         // 检查端口号是否合法
-        if (port <= 1024 || port > 65535)
+        if (port <= 1024)
             return -1;
 
         int listen_fd = socket(AF_INET, SOCK_STREAM, 0);

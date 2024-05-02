@@ -26,7 +26,7 @@ namespace util
      * @param port 指定端口
      * @return 成功返回listening_fd, 失败返回-1
      */
-    int socket_bind_listen(short port);
+    int socket_bind_listen(unsigned short port);
 
     /**
      * @brief 设置指定fd为非阻塞模式
