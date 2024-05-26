@@ -2,6 +2,8 @@
 #include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <unistd.h>
+#include <fcntl.h> 
+#include <poll.h>
 
 #include <csignal>
 
@@ -18,36 +20,8 @@
 #define MAX_EVENTS 4096
 
 
-// void task(void *arg)
-// {
-//     if(arg == nullptr)
-//         exit(-1);// 线程中使用, 整个进程直接退出
-//     httpData* data = (httpData*)arg;
-//     ParseRequest ret = data->handleRequest();
+bool volatile g_abort_loop;
 
-//     struct epoll_event ev;
-//     ev.data.ptr = data;
-//     ev.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
-
-//     if(ret == ParseRequest::KEEPALIVE)
-//     {// 是长连接, 重置
-//         data->reset();
-//         // 重新添加计时器和回调函数
-//         data->timer = Singleton<TimerManager>::getInstance().addTimer(TIMEOUT, [data, &ev](){
-//             epoll_ctl(epoll_fd, EPOLL_CTL_DEL,data->getFd(), &ev);
-//             close(data->getFd());
-//             delete data;
-//         });
-//         // 先添加定时器在激活, 否则可能激活EPOLLONESHOT, 马上就触发了, timer还没加上去
-//         epoll_ctl(epoll_fd, EPOLL_CTL_MOD, data->getFd(), &ev);        // 重新激活EPOLLONESHOT
-//     }
-//     if(ret == ParseRequest::FINISH || ret == ParseRequest::ERROR)
-//     {//不能放到timer回调中,必须马上epoll_del, 否则回调还没执行, 可能又触发了
-//         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, data->getFd(), &ev);
-//         close(data->getFd());
-//         delete data;
-//     }
-// }
 
 void show_help_info()
 {
@@ -121,112 +95,59 @@ int main(int argc, char* argv[])
         return 0;
     }
     int listening_socket = listening_socket_init();
-
-    // 创建epoll实例
-    int epoll_fd = epoll_create(10);
-    if(epoll_fd == -1)
+    if(listening_socket == -1)
     {
-        LOG_FATAL(LOG_ROOT()) << "Create epoll instance failed: " << my_strerror(errno);
-        exit(EXIT_FAILURE);
+        LOG_FATAL(LOG_ROOT()) << "Create listening socket failed: " << my_strerror(errno);
+        printf("Create listening socket failed: %s\n", my_strerror(errno));
+        return 1;
     }
 
-    // 添加 listen socket 到epoll实例中去
-    struct epoll_event ev;
-    ev.data.fd = listening_socket;
-    ev.events = EPOLLIN | EPOLLET;
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listening_socket, &ev);
+    struct pollfd fds[1];
+    fds[0].fd = listening_socket;
+    fds[0].events = POLLIN;
 
-    // 存放epoll_wait返回的事件
-    struct epoll_event epoll_event_list[MAX_EVENTS];
-    while(true)
+    g_abort_loop = false;
+    int rc = -1;
+    while(!g_abort_loop)
     {
-        int event_count = epoll_wait(epoll_fd, epoll_event_list, MAX_EVENTS, -1);
-        if (event_count == -1 && errno != EINTR)
+        rc = poll(fds, 1, -1);
+        if(rc < 0)
         {
-            LOG_ERROR(LOG_ROOT()) << "epoll_wait failed: " << my_strerror(errno);
+            if(errno == EINTR)
+            {
+                // 可能是被信号中断, 检查程序是否准备退出
+                if(!g_abort_loop)
+                    LOG_WARN(LOG_ROOT()) << "poll failed: " << my_strerror(errno);
+            }
+            continue;
+        }
+        if(g_abort_loop)
+        {
             break;
         }
-
-        // 处理已经触发的事件
-        
+        int flags = fcntl(listening_socket, F_GETFL, 0);
+        fcntl(listening_socket, F_SETFL, flags | O_NONBLOCK);
+        // 一直重复尝试接收新请求, 直到没有新请求为止
+        bool try_accept = true;
+        while(try_accept)
+        {
+            struct sockaddr_storage client_addr;
+            socklen_t len = sizeof(sockaddr_storage);
+            int client_sock = accept4(listening_socket, (struct sockaddr*)&client_addr, &len, SOCK_CLOEXEC);
+            if(client_sock == -1)
+            {
+                if(errno != EAGAIN && errno != EWOULDBLOCK)
+                    LOG_WARN(LOG_ROOT()) << "accept failed: " << my_strerror(errno);
+                // 当前没有连续需要accept, 进入下次poll阻塞等待
+                try_accept = false;
+                fcntl(listening_socket, F_SETFL, flags);
+                continue;
+            }
+            // 处理新的客户端连接....
+            
+            // ... 待补充...
+        }
     }
-
-    // while(true)
-    // {
-    //     int events_num = epoll_wait(epoll_fd, epevList, MAXEVENTS, -1);
-    //     if(events_num == -1 && errno != EINTR)
-    //     {
-    //         perror("epoll_wait");
-    //         break;
-    //     }
-    //     else
-    //     {
-    //         for(int i = 0; i < events_num; ++i)
-    //         {
-    //             if(epevList[i].data.fd == listen_fd)
-    //             {// 监听socket触发
-    //                 struct sockaddr_in clientAddr;
-    //                 socklen_t socklen = sizeof(clientAddr);
-    //                 int fd = -1;
-    //                 // 由于是边缘触发, listen_fd读就绪时, 可能有多个请求到达
-
-    //                 // 最终 accept 会阻塞... 需要先设置非阻塞, 或者专门留一个线程去做accept
-
-    //                 // 记得nginx对于listening socket是水平触发
-    //                 // mariadb 使用poll, 压根不支持边缘触发, 然后设置listening socket为非阻塞, 再进行accept; 不是很理解, 因为水平触发返回, accept肯定可以成功才对...
-
-    //                 while((fd = accept(listen_fd, (struct sockaddr* )&clientAddr, &socklen)) > -1){
-    //                     util::set_nonblock(fd);
-    //                     httpData* data = new httpData(fd, ConfigManager::lookup<std::string>("htdocs")->getValue());
-    //                     struct epoll_event ev;
-    //                     ev.data.ptr = data;
-    //                     ev.events = EPOLLET | EPOLLIN | EPOLLONESHOT;
-    //                     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-    //                     // 绑定一个计时器, 回调函数的任务就是 delete httpdata
-    //                     data->timer = Singleton<TimerManager>::getInstance().addTimer(TIMEOUT, [data, epoll_fd, &ev](){
-    //                         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, data->getFd(), &ev);
-    //                         close(data->getFd());
-    //                         delete data;
-    //                     });
-    //                 }
-    //             }
-    //             else
-    //             {// 客户端socket触发
-    //                 httpData* data = (httpData*) epevList[i].data.ptr;
-    //                 if(epevList[i].events & EPOLLIN)
-    //                 {// 添加任务时断开计时器
-    //                     data->timer->cancel();// 取消timer的任务
-    //                     data->timer = nullptr;
-    //                     struct Task tk{task, data};
-    //                     switch(pool.addTask(tk))
-    //                     {
-    //                         case ThreadPoolStatus::LOCK_FAILURE:
-    //                             printf("mutex或cond错误!\n");
-    //                             break;
-    //                         case ThreadPoolStatus::QUEUE_FULL:
-    //                             printf("任务队列满了!\n");
-    //                             break;
-    //                         case ThreadPoolStatus::SHUTDOWN:
-    //                             printf("线程池已关闭!\n");
-    //                             break;
-    //                         default:
-    //                             break;// 任务添加成功
-    //                     }
-    //                 }
-    //                 else if(epevList[i].events & EPOLLERR)
-    //                     printf("EPOLLERR!\n");
-    //                 else if(epevList[i].events & EPOLLHUP)
-    //                     printf("EPOLLHUP!\n");
-    //             }
-    //         }
-    //     }
-    //     epoll_timeout = Singleton<TimerManager>::getInstance().getMinTO();
-    //     if(epoll_timeout < -1)
-    //     {// 已经有定时器到期了
-    //         Singleton<TimerManager>::getInstance().takeAllTimeout();
-    //         epoll_timeout = Singleton<TimerManager>::getInstance().getMinTO();
-    //     }
-    // }
 
     strerror_destroy();
     return 0;
