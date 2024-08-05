@@ -15,13 +15,6 @@
 namespace util
 {
     /**
-     * @brief 设置sig信号的处理方式为忽视
-     * @param sig 指定的信号
-     * @return 0表示成功, -1表示失败;
-     */
-    int set_signal_ignore(int sig);
-
-    /**
      * @brief 根据指定端口开启监听
      * @param port 指定端口
      * @return 成功返回listening_fd, 失败返回-1

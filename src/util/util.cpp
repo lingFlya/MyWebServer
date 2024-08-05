@@ -10,24 +10,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <csignal>
 
 
 namespace util
 {
-    int set_signal_ignore(int sig)
-    {
-        struct sigaction act;
-        act.sa_flags = 0;
-        act.sa_handler = SIG_IGN;
-        // 信号处理函数在执行过程中, 阻塞所有其它信号; 避免信号处理函数执行过程中接受到新的信号
-        sigfillset(&act.sa_mask);
-        if (-1 == sigaction(sig, &act, NULL))
-            return -1;
-        return 0;
-    }
-
-
     int socket_bind_listen(unsigned short port)
     {
         // 检查端口号是否合法
