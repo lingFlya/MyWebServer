@@ -1,11 +1,15 @@
 #include "log/log.h"
 
+#include <iostream>
+
+
 using WebServer::ScopedLock;
 
 void Logger::addAppender(LogAppender::ptr appender)
 {
     ScopedLock<WebServer::Mutex> lk(m_mtx);
-    // 如果该appender的formatter为空(Appender没有指定自己的格式), 那就使用logger的formatter
+    // 如果appender的formatter为空(Appender没有指定自己的格式), 就使用logger的formatter
+    // logger的构造时默认就有formatter, 一定不为空
     if(!appender->getFormatter())
         appender->setFormatter(m_formatter);
     m_listAppender.push_back(appender);
@@ -30,13 +34,10 @@ void Logger::clearAppender()
     m_listAppender.clear();
 }
 
-/// 子函数
 void Logger::log(LogLevel::Level level, LogEvent::ptr event)
 {
-    // 将要打印的内容格式化
     if(level >= m_level)
     {
-        /// this智能指针
         auto self = shared_from_this();
         ScopedLock<WebServer::Mutex> lk(m_mtx);
         if(!m_listAppender.empty()) {
@@ -69,6 +70,31 @@ void Logger::fatal(LogEvent::ptr event)
 {
     log(LogLevel::FATAL, event);
 }
+
+void Logger::setFormatter(LogFormatter::ptr formatter)
+{
+    if ( !formatter )
+        return;
+    ScopedLock<WebServer::Mutex> lock(m_mtx);
+    m_formatter = formatter;
+
+    for (auto& appender : m_listAppender)
+    {
+        appender->setFormatter(formatter);
+    }
+}
+
+void Logger::setFormatter(const std::string& format_str)
+{
+    LogFormatter::ptr formatter = std::make_shared<LogFormatter>(format_str);
+    if (formatter->isError())
+    {
+        std::cout << "Logger::setFormatter function, format string error!" << std::endl;
+        return;
+    }
+    setFormatter(formatter);
+}
+
 
 LoggerManager::LoggerManager()
     :m_root(nullptr)

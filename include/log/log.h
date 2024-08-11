@@ -19,6 +19,7 @@
 class LogEvent;
 class LogEventWrap;
 
+
 /**
  * @brief 日志器
  */
@@ -30,9 +31,10 @@ public:
     typedef std::shared_ptr<Logger> ptr;
 
     Logger(const std::string& name)
-        :m_level(LogLevel::DEBUG),
-         m_formatter(std::make_shared<LogFormatter>("%d{%Y-%m-%d %H:%M:%S}%T%t%T%N%T[%p]%T%f:%l%T%m%n")),
-         m_name(name)
+        : m_level(LogLevel::DEBUG),
+        m_root(nullptr),
+        m_formatter(std::make_shared<LogFormatter>("%d{%Y-%m-%d %H:%M:%S}%T%t%T%N%T[%p]%T%f:%l%T%m%n")),
+        m_name(name)
     {}
 
     /**
@@ -52,15 +54,13 @@ public:
      */
     void clearAppender();
 
-    /// 通过相应函数输出日志.
+    // 通过相应函数输出日志.
 
     void debug(LogEvent::ptr event);
     void info(LogEvent::ptr event);
     void warn(LogEvent::ptr event);
     void error(LogEvent::ptr event);
     void fatal(LogEvent::ptr event);
-
-    /// 结束
     
     /**
      * @brief 返回日志器名称
@@ -78,32 +78,39 @@ public:
     void setLevel(LogLevel::Level val) { m_level = val;}
 
     /**
-     * @brief 设置日志格式器
+     * @brief 设置日志格式器, 会将m_listAppender的所有appender都重置;
+     * @param formatter 新日志格式器
      */
-    void setFormatter(LogFormatter::ptr val);
+    void setFormatter(LogFormatter::ptr formatter);
 
     /**
-     * @brief 设置日志格式模板
+     * @brief 设置日志格式模板, 会将m_listAppender的所有appender都重置;
+     * @param format_str 新日志格式
      */
-    void setFormatter(const std::string& val);
+    void setFormatter(const std::string& format_str);
 
     /**
      * @brief 获取日志格式器
      */
-    LogFormatter::ptr getFormatter();
+    LogFormatter::ptr getFormatter()
+    {
+        WebServer::ScopedLock<WebServer::Mutex> lock(m_mtx);
+        return m_formatter;
+    }
 
     /**
-     * @brief 写日志函数
+     * @brief 写日志
      */
     void log(LogLevel::Level level, LogEvent::ptr event);
 
 private:
     LogLevel::Level                 m_level;
-    Logger::ptr                     m_root;         /// 主日志器
-    LogFormatter::ptr               m_formatter;    /// 格式化器
-    WebServer::Mutex                m_mtx;          /// 互斥锁
-    std::string                     m_name;         /// 日志器名称
-    std::list<LogAppender::ptr>     m_listAppender; /// 集合(输出地集合)
+    // root日志器, LoggerManager在管理时会赋初值
+    Logger::ptr                     m_root;
+    LogFormatter::ptr               m_formatter;
+    WebServer::Mutex                m_mtx;
+    std::string                     m_name;
+    std::list<LogAppender::ptr>     m_listAppender;
 };
 
 

@@ -32,18 +32,19 @@ public:
 
     /**
      * @brief 设置appender接受的日志级别
-     * 
      */
     void setLevel(LogLevel::Level level)
     {
+        WebServer::ScopedLock<WebServer::Mutex> lock(m_mutex);
         m_level = level;
     }
 
     /**
      * @brief 获取日志appender日志级别
      */
-    LogLevel::Level getLevel() const
+    LogLevel::Level getLevel()
     {
+        WebServer::ScopedLock<WebServer::Mutex> lock(m_mutex);
         return m_level;
     }
 
@@ -56,10 +57,13 @@ public:
     void setFormatter(LogFormatter::ptr newFormatter);
 
 protected:
-    LogLevel::Level         m_level;          // 默认日志级别，小于该级别，该appender不记录。
-    LogFormatter::ptr       m_formatter;      // 日志格式器, 默认为NULL
-    // std::shared_ptr的不同副本在不同线程操作是安全的, 在多个线程操作同一std::shared_ptr实例, 且有一个线程是执行std::shared_ptr的非const成员函数, 则不安全;
-    WebServer::Mutex        m_formatterMtx;   // 互斥锁, 防止多个线程操作this->m_formatter
+    // 日志级别, 若传入的log事件级别小于该级别; 则appender不记录该事件
+    LogLevel::Level         m_level;
+    // 格式化器
+    LogFormatter::ptr       m_formatter;
+    // 互斥锁, 保证本对象的线程安全; 上层logger写日志会加锁, formatter没有线程安全问题;
+    // 但Appender对象可能被多个logger在不同线程使用, 如不同logger的日志写入到同一文件, 需要保证安全;
+    WebServer::Mutex        m_mutex;
 };
 
 /**
@@ -103,9 +107,6 @@ public:
     void log(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override;
 private:
     std::string     m_fileName;        // 文件路径
-    /**
-     * @todo 多线程操作 m_fileStream 也是线程不安全的, 需要加锁; sylar加了, 但是和m_formatter共用一把锁; 我单独给它加把锁吧
-     */
     std::ofstream   m_fileStream;      // 文件流
     uint64_t        m_lastTime = 0;    // 上次打开时间
 };

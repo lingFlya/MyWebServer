@@ -26,7 +26,7 @@ LogFormatter::LogFormatter(const std::string& pattern)
 std::string LogFormatter::format(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event)
 {
     std::stringstream ss;
-    for(auto& item : m_vctItems)
+    for(auto& item : m_items)
     {
         item->format(ss, logger, level, event);
     }
@@ -35,7 +35,7 @@ std::string LogFormatter::format(std::shared_ptr<Logger> logger, LogLevel::Level
 
 std::ostream& LogFormatter::format(std::ostream& ofs, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event)
 {
-    for(auto& item : m_vctItems)
+    for(auto& item : m_items)
     {
         item->format(ofs, logger, level, event);
     }
@@ -44,7 +44,7 @@ std::ostream& LogFormatter::format(std::ostream& ofs, std::shared_ptr<Logger> lo
 
 void LogFormatter::init()
 {
-    /// 静态变量，字符串映射到创建对应formatItem对象的lambda
+    // 字符串映射到创建对应FormatterItem对象的lambda
     static std::map<std::string, std::function<LogFormatItem::ptr(const std::string& str)> > s_format_items = {
 #define XX(str, C) \
         {#str, [](const std::string& fmt) { return LogFormatItem::ptr(new C(fmt));}}
@@ -61,14 +61,18 @@ void LogFormatter::init()
 #undef XX
     };
 
-    // 元组（项，子格式，是否需要转义）数组
-    std::vector<std::tuple<std::string, std::string, int>> vec;
-    std::string nstr;
+
+    // @todo 找机会优化下, 以下这些逻辑不太好阅读...
+
+
+    // 元组(项, 子格式, 是否需要转义)数组
+    std::vector<std::tuple<std::string, std::string, int>> pattern_info;
+    std::string sub_str;// pattern中的某项
     for(size_t i = 0; i < m_pattern.size(); ++i)
     {
         if(m_pattern[i] != '%')
         {
-            nstr.append(1, m_pattern[i]);
+            sub_str.append(1, m_pattern[i]);
             continue;
         }
 
@@ -77,7 +81,7 @@ void LogFormatter::init()
         {
             if(m_pattern[i + 1] == '%') 
             {
-                nstr.append(1, '%');
+                sub_str.append(1, '%');
                 continue;
             }
         }
@@ -121,30 +125,30 @@ void LogFormatter::init()
 
         if(fmt_status == 0) 
         {
-            if(!nstr.empty()) {
-                vec.push_back(std::make_tuple(nstr, std::string(), 0));
-                nstr.clear();
+            if(!sub_str.empty()) {
+                pattern_info.push_back(std::make_tuple(sub_str, std::string(), 0));
+                sub_str.clear();
             }
-            vec.push_back(std::make_tuple(str, fmt, 1));
+            pattern_info.push_back(std::make_tuple(str, fmt, 1));
             i = n - 1;
         } 
         else if(fmt_status == 1) 
         {
             std::cout << "pattern parse error: " << m_pattern << " - " << m_pattern.substr(i) << std::endl;
             m_error = true;
-            vec.push_back(std::make_tuple("<<pattern_error>>", fmt, 0));
+            pattern_info.push_back(std::make_tuple("<<pattern_error>>", fmt, 0));
         }
     }
-    if(!nstr.empty()) {
-        vec.push_back(std::make_tuple(nstr, "", 0));
+    if(!sub_str.empty()) {
+        pattern_info.push_back(std::make_tuple(sub_str, "", 0));
     }
 
-    for(auto& tup : vec)
+    for(auto& tup : pattern_info)
     {
         if(std::get<2>(tup) == 0)
         {
-            /// 如果是不需要转义的，原样输出string。
-            m_vctItems.push_back(LogFormatItem::ptr(new StringFormatItem(std::get<0>(tup))));
+            // 如果是不需要转义的, 原样输出string
+            m_items.push_back(LogFormatItem::ptr(new StringFormatItem(std::get<0>(tup))));
         }
         else
         {
@@ -152,11 +156,11 @@ void LogFormatter::init()
             if(it == s_format_items.end())
             {
                 std::string error_info = "<< unknown format: %" + std::get<0>(tup) + ">>";
-                m_vctItems.push_back(LogFormatItem::ptr(new StringFormatItem(error_info )));
+                m_items.push_back(LogFormatItem::ptr(new StringFormatItem(error_info )));
                 m_error = true;
             } 
             else
-                m_vctItems.push_back(it->second(std::get<1>(tup)));
+                m_items.push_back(it->second(std::get<1>(tup)));
         }
     }
 }

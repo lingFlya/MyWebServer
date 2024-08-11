@@ -8,13 +8,13 @@ using WebServer::ScopedLock;
 
 LogFormatter::ptr LogAppender::getFormatter()
 {
-    ScopedLock<WebServer::Mutex> lock(m_formatterMtx);
+    ScopedLock<WebServer::Mutex> lock(m_mutex);
     return m_formatter;
 }
 
 void LogAppender::setFormatter(LogFormatter::ptr newFormatter)
 {
-    ScopedLock<WebServer::Mutex> lock(m_formatterMtx);
+    ScopedLock<WebServer::Mutex> lock(m_mutex);
     m_formatter = newFormatter;
 }
 
@@ -22,7 +22,7 @@ void StdOutLogAppender::log(std::shared_ptr<Logger> logger, LogLevel::Level leve
 {
     if(level >= m_level)
     {
-        ScopedLock<WebServer::Mutex> lock(m_formatterMtx);
+        ScopedLock<WebServer::Mutex> lock(m_mutex);
         m_formatter->format(std::cout, logger, level, event);
     }
 }
@@ -41,6 +41,7 @@ FileLogAppender::~FileLogAppender()
 
 bool FileLogAppender::reopen()
 {
+    ScopedLock<WebServer::Mutex> lock(m_mutex);
     if(m_fileStream)
         m_fileStream.close();
     m_fileStream.open(m_fileName, std::ios::app);
@@ -67,7 +68,7 @@ void FileLogAppender::log(std::shared_ptr<Logger> logger, LogLevel::Level level,
             reopen();
             m_lastTime = now;
         }
-        ScopedLock<WebServer::Mutex> lock(m_formatterMtx);
+        ScopedLock<WebServer::Mutex> lock(m_mutex);
         if(!m_formatter->format(m_fileStream, logger, level, event)) {
             std::cout << "FileLogAppender::log error!" << std::endl;
         }

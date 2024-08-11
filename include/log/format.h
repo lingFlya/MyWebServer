@@ -248,9 +248,10 @@ public:
 
 
 private:
-    std::string                     m_pattern;        /// 日志格式模板
-    std::vector<LogFormatItem::ptr> m_vctItems;       /// 具体的LogFormatItem
-    bool                            m_error = false;  /// 是否有错误
+    // 日志格式模板
+    std::string                     m_pattern;
+    std::vector<LogFormatItem::ptr> m_items;
+    bool                            m_error = false;
 };
 
 #endif // LOG_FORMAT_H
