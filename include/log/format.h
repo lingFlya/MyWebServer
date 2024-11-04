@@ -18,25 +18,35 @@ public:
     typedef std::shared_ptr<LogFormatItem> ptr;
 
     LogFormatItem(const std::string& format = "")
-        :m_format(format)
+        :m_format(format), m_level(LogLevel::Level::DEBUG)
     {}
 
     virtual ~LogFormatItem() {}
 
+    LogLevel::Level getLogLevel()const
+    {
+        return m_level;
+    }
+
+    void setLogLevel(LogLevel::Level log_level)
+    {
+        m_level = log_level;
+    }
+
     /**
-     * @brief 格式化日志到流
+     * @brief 格式化该项内容到日志中
      * @param[in, out] os 日志输出流
      * @param[in] logger 日志器
-     * @param[in] level 日志等级
      * @param[in] event 日志事件
      */
     virtual void format(std::ostream &os, std::shared_ptr<Logger> logger, 
-        LogLevel::Level level, LogEvent::ptr event) = 0;
+        LogEvent::ptr event) = 0;
 
 
 protected:
-    // 日志项的格式(目前只有日期时间项有格式)
+    // 日志项的格式(子格式, 目前只有日期时间项有格式)
     std::string     m_format;
+    LogLevel::Level m_level;
 };
 
 
@@ -50,8 +60,8 @@ public:
         : LogFormatItem(format)
     {}
 
-    void format(std::ostream &os, std::shared_ptr<Logger> logger __attribute__((unused)), 
-        LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override
+    void format(std::ostream &os, std::shared_ptr<Logger> logger __attribute__((unused)),
+        LogEvent::ptr event) override
     {
         os << event->getContent();
     }
@@ -64,14 +74,17 @@ public:
 class LevelFormatItem : public LogFormatItem 
 {
 public:
+    /**
+     * @brief: 和其它子类不同, 日志等级须要知道日志等级, 因为它要将其转化为字符串
+     */
     LevelFormatItem(const std::string& format = "")
         : LogFormatItem(format)
     {}
 
     void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)),
-        LogLevel::Level level, LogEvent::ptr event __attribute__((unused))) override 
+        LogEvent::ptr event __attribute__((unused))) override 
     {
-        os << LogLevel::ToString(level);
+        os << LogLevel::ToString(m_level);
     }
 };
 
@@ -87,7 +100,7 @@ public:
     {}
 
     void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)),
-        LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override 
+        LogEvent::ptr event) override 
     {
         os << event->getThreadID();
     }
@@ -105,7 +118,7 @@ public:
     {}
 
     void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), 
-        LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override 
+        LogEvent::ptr event) override 
     {
         os << event->getThreadName();
     }
@@ -123,7 +136,7 @@ public:
     {}
 
     void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), 
-        LogLevel::Level level __attribute__((unused)), LogEvent::ptr event __attribute__((unused))) override 
+        LogEvent::ptr event __attribute__((unused))) override 
     {
         os << std::endl;
     }
@@ -141,7 +154,7 @@ public:
     {}
 
     void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)), 
-        LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override 
+        LogEvent::ptr event) override 
     {
         os << event->getLine();
     }
@@ -159,7 +172,7 @@ public:
     {}
 
     void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)),
-        LogLevel::Level level __attribute__((unused)), LogEvent::ptr event) override 
+        LogEvent::ptr event) override 
     {
         os << event->getFile();
     }
@@ -177,7 +190,7 @@ public:
     {}
 
     void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)),
-        LogLevel::Level level __attribute__((unused)), LogEvent::ptr event __attribute__((unused))) override 
+        LogEvent::ptr event __attribute__((unused))) override 
     {
         os << '\t';
     }
@@ -198,7 +211,7 @@ public:
             m_format = "%Y-%m-%d %H:%M:%S";
     }
 
-    void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level,
+    void format(std::ostream& os, std::shared_ptr<Logger> logger,
         LogEvent::ptr event) override;
 };
 
@@ -214,7 +227,7 @@ public:
     {}
 
     void format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)),
-        LogLevel::Level level __attribute__((unused)), LogEvent::ptr event __attribute__((unused))) override 
+        LogEvent::ptr event __attribute__((unused))) override 
     {
         os << m_string;
     }
@@ -225,14 +238,14 @@ private:
 
 
 /**
- * @brief 将LogEvent内容格式化，转化成string
+ * @brief 格式化器, 将LogEvent内容格式化, 转化成string或者直接输入到ostream对象中
  */
 class LogFormatter
 {
 public:
     typedef std::shared_ptr<LogFormatter> ptr;
     /**
-     * @brief 构造函数
+     * @brief LogFormatter构造函数
      * @param[in] pattern 日志格式模板, 可以设置的项如下
      * @details 
      *  %m 消息内容
@@ -257,20 +270,27 @@ public:
      */
     void init();
 
-    /**
-     * @brief 返回日志格式
-     */
     const std::string& getPattern() const
     {
         return m_pattern;
     }
 
     /**
-     * @brief 是否有错误
+     * @brief 解析是否有错误发生
      */
     bool isError() const
     {
         return m_error;
+    }
+
+    void setLevel(LogLevel::Level log_level)
+    {
+        m_level = log_level;
+    }
+
+    LogLevel::Level getLevel()const
+    {
+        return m_level;
     }
 
 
@@ -280,12 +300,13 @@ private:
      * @param pos 开始搜索子格式位置
      * @return sub_format 搜索到的子格式, 若没有, 则返回空字符串;
      */
-    std::string get_item_format(size_t pos) const;
+    std::string _get_item_format(size_t pos) const;
+    
 
-    // 日志格式模板
-    std::string                     m_pattern;
-    std::vector<LogFormatItem::ptr> m_items;
     bool                            m_error;
+    LogLevel::Level                 m_level;    // formatter对象也允许设置日志等级
+    std::string                     m_pattern;  // 日志格式模板
+    std::vector<LogFormatItem::ptr> m_items;    // 具体的日志格式项
 };
 
 #endif // LOG_FORMAT_H

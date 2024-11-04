@@ -66,25 +66,21 @@ protected:
     WebServer::Mutex        m_mutex;
 };
 
+
 /**
- * @brief 输出到控制台
+ * @brief 日志记录到标准输出
  */
 class StdOutLogAppender : public LogAppender
 {
 public:
     typedef std::shared_ptr<StdOutLogAppender> ptr;
-
-    /**
-     * @brief           构造函数
-     * @param logger    日志器
-     * @param level     指定父类m_level的值
-     */
-
+    
     void log(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override;
 };
 
+
 /**
- * @brief 输出到指定文件
+ * @brief 日志记录到指定文件
  */
 class FileLogAppender : public LogAppender
 {
@@ -93,7 +89,7 @@ public:
 
     /**
      * @brief 构造函数
-     * @param fileName  输出文件
+     * @param fileName  记录日志的文件名
      */
     explicit FileLogAppender(const std::string& fileName);
     virtual ~FileLogAppender();

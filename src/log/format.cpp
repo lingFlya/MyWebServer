@@ -7,7 +7,7 @@
 
 
 void DateTimeFormatItem::format(std::ostream& os, std::shared_ptr<Logger> logger __attribute__((unused)),
-    LogLevel::Level level __attribute__((unused)), LogEvent::ptr event)
+    LogEvent::ptr event)
 {
     time_t time = event->getTime();
     struct tm t;
@@ -19,31 +19,42 @@ void DateTimeFormatItem::format(std::ostream& os, std::shared_ptr<Logger> logger
 
 
 LogFormatter::LogFormatter(const std::string& pattern)
-    : m_pattern(pattern), m_error(false)
+    : m_error(false), m_level(LogLevel::Level::DEBUG)
+    , m_pattern(pattern)
 {
     init();
 }
 
-std::string LogFormatter::format(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event)
+std::string LogFormatter::format(std::shared_ptr<Logger> logger,
+    LogLevel::Level level,LogEvent::ptr event)
 {
+    if (level < m_level)
+        return "";
+
     std::stringstream ss;
     for(auto& item : m_items)
     {
-        item->format(ss, logger, level, event);
+        item->setLogLevel(level);
+        item->format(ss, logger, event);
     }
     return ss.str();
 }
 
-std::ostream& LogFormatter::format(std::ostream& ofs, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event)
+std::ostream& LogFormatter::format(std::ostream& ofs,
+    std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event)
 {
+    if (level < m_level)
+        return ofs;
+    
     for(auto& item : m_items)
     {
-        item->format(ofs, logger, level, event);
+        item->setLogLevel(level);
+        item->format(ofs, logger, event);
     }
     return ofs;
 }
 
-std::string LogFormatter::get_item_format(size_t pos) const
+std::string LogFormatter::_get_item_format(size_t pos) const
 {
     std::string format;
     if (pos > m_pattern.size())
@@ -65,21 +76,23 @@ std::string LogFormatter::get_item_format(size_t pos) const
 void LogFormatter::init()
 {
     // 字符串映射到创建对应FormatterItem对象的lambda; 如果是全局变量, 全局变量还需要考虑初始化顺序...
+    #define init_map(ch, cls) \
+        {ch, [](const std::string& fmt) { return LogFormatItem::ptr(new cls(fmt));}}
+            
     static std::map<char, std::function<LogFormatItem::ptr(const std::string& fmt)> > g_format_items 
         = {
-        #define init_map(ch, cls) \
-            {ch, [](const std::string& fmt) { return LogFormatItem::ptr(new cls(fmt));}}
-                init_map('m', MessageFormatItem),           //m:消息
-                init_map('p', LevelFormatItem),             //p:日志级别
-                init_map('t', ThreadIdFormatItem),          //t:线程id
-                init_map('n', NewLineFormatItem),           //n:换行
-                init_map('d', DateTimeFormatItem),          //d:日期时间
-                init_map('f', FilenameFormatItem),          //f:文件名
-                init_map('l', LineFormatItem),              //l:行号
-                init_map('T', TabFormatItem),               //T:Tab
-                init_map('N', ThreadNameFormatItem),        //N:线程名称
-        #undef init_map
+            init_map('m', MessageFormatItem),           //m:消息
+            init_map('p', LevelFormatItem),             //p:日志级别
+            init_map('t', ThreadIdFormatItem),          //t:线程id
+            init_map('n', NewLineFormatItem),           //n:换行
+            init_map('d', DateTimeFormatItem),          //d:日期时间
+            init_map('f', FilenameFormatItem),          //f:文件名
+            init_map('l', LineFormatItem),              //l:行号
+            init_map('T', TabFormatItem),               //T:Tab
+            init_map('N', ThreadNameFormatItem),        //N:线程名称
     };
+    #undef init_map
+
 
     std::string item_string;
     for(size_t i = 0; i < m_pattern.size(); ++i)
@@ -99,7 +112,7 @@ void LogFormatter::init()
                 if(std::isalpha(next_ch))
                 {
                     // %后面接一个字母, 表示是合法格式; 此时继续判断该项是否有 子格式
-                    std::string item_format = this->get_item_format(i + 2);
+                    std::string item_format = this->_get_item_format(i + 2);
                     if(!item_format.empty())
                         i = i + item_format.length() + 2;// i跳过项的format
 
